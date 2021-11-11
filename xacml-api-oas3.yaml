@@ -1,0 +1,325 @@
+openapi: 3.0.1
+info:
+  title: XACML 3.0 Authorization Service using XACML REST/JSON profile v1.1
+  description: >-
+    This is the XACML 3.0 REST endpoint for an XACML 3.0 authorization service.
+    You can find out more about XACML at
+    [https://www.oasis-open.org/committees/xacml/](https://www.oasis-open.org/committees/xacml/)
+    and on [Wikipedia](https://en.wikipedia.org/wiki/XACML).
+    The specification is available
+    [here](https://docs.oasis-open.org/xacml/xacml-json-http/v1.1/xacml-json-http-v1.1.html)
+  contact:
+    name: Axiomatics Support
+    email: support@axiomatics.com
+  license:
+    name: Apache License v2.0
+    url: 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+  version: '0.1'
+externalDocs:
+  description: Find out more about the JSON Profile of XACML 3.0
+  url: 'https://docs.oasis-open.org/xacml/xacml-json-http/v1.1/xacml-json-http-v1.1.html'
+servers:
+  - url: /
+security:
+  - basicAuth: []
+paths:
+  /authorize:
+    post:
+      tags:
+        - authorize
+      summary: Send a XACML 3.0 authorization request in JSON and get a decision back.
+      description: >-
+        Use this method to send an authorization request which will be processed
+        by the Policy Decision Point (PDP). The PDP will produce a response and
+        return it to the client. The response will contain at least one decision
+        (either of Permit, Deny, NotApplicable, or Indeterminate) according to
+        the XACML standard. This JSON interface supports the Multiple Decision
+        Profile.
+      operationId: authorize
+      requestBody:
+        description: The XACML 3.0 request that needs to be evaluated.
+        content:
+          application/xacml+json:
+            schema:
+              $ref: '#/components/schemas/RequestObject'
+        required: true
+      responses:
+        '200':
+          description: An authorization decision was returned.
+          content:
+            application/xacml+json:
+              schema:
+                $ref: '#/components/schemas/Response'
+        '400':
+          description: Invalid request.
+          content: {}
+        '401':
+          description: Invalid authentication credentials
+          content: {}
+        '403':
+          description: Access to the API denied
+          content: {}
+        '405':
+          description: Method Not Allowed
+          content: {}
+        '415':
+          description: >-
+            Unsupported media type - make sure you set Content-Type to
+            application/xacml+json
+          content: {}
+        '500':
+          description: >-
+            Internal server error - the PDP could not process the incoming
+            request.
+          content: {}
+      x-codegen-request-body-name: body
+
+components:
+  schemas:
+    RequestObject:
+      required:
+        - Request
+      type: object
+      properties:
+        Request:
+          $ref: '#/components/schemas/Request'
+      description: This is the top-level element that wraps the request.
+
+    Request:
+      type: object
+      properties:
+        AccessSubject:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/AnonymousCategory'
+        Action:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/AnonymousCategory'
+        Resource:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/AnonymousCategory'
+        Environment:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/AnonymousCategory'
+        Category:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/Category'
+        XPathVersion:
+          type: string
+          default: 'http://www.w3.org/TR/1999/REC-xpath-19991116'
+        ReturnPolicyIdList:
+          type: boolean
+          description: >-
+            Determines whether the PDP will return the list of identifiers of
+            the policies that were used in the decision making process.
+          default: false
+        CombinedDecision:
+          type: boolean
+          description: >-
+            In the case of a multiple decision profile request, tells the PDP to
+            combine each result's decision into a single decision and return that.
+          default: false
+      description: |-
+        A XACML request describes a yes/no authorization request e.g. "Can Alice view document #123?"
+        A request is therefore made up of several attributes
+        and their values (e.g. username = 'Alice'). The attributes are grouped
+        into categories, typically `AccessSubject`, `Action`, `Resource`, and
+        `Environment`.
+
+    Response:
+      type: object
+      properties:
+        Response:
+          type: array
+          items:
+            $ref: '#/components/schemas/Result'
+      required:
+        - Response
+
+    Category:
+      allOf:
+        - $ref: '#/components/schemas/AnonymousCategory'
+        - required:
+            - CategoryId
+          type: object
+          properties:
+            CategoryId:
+              type: string
+              description: >-
+                the identifier of the category this object contains attributes
+                for. The full-blown URI or the equivalent shorthand notation
+                must be used e.g.
+                urn:oasis:names:tc:xacml:3.0:attribute-category:resource or
+                Resource. Custom values are also accepted so long as they are
+                valid URIs. Whitespaces are not allowed.
+        - type: object
+          description: >-
+            Use the Category property when you want to use custom categories for
+            which there are no shorthand notations (Resource, Action,
+            Environment, AccessSubject, RecipientSubject, IntermediarySubject,
+            Codebase, RequestingMachine).
+
+    AnonymousCategory:
+      type: object
+      properties:
+        Id:
+          type: string
+          description: >-
+            This is an optional identifier for this specific object. The
+            identifier may be used when constructing a Multiple Decision Request
+        Content:
+          type: string
+          description: >-
+            A XACML request can contain XML content that is passed in as part of
+            the category it belongs to. The XML content needs to be either
+            Base64 encoded or XML escaped as explained in the JSON profile of XACML.
+          example: "<?xml version=\"1.0\"?><element/>"
+        Attribute:
+          type: 'array'
+          items:
+            $ref: '#/components/schemas/Attribute'
+      description: >-
+        Use the Category property when you want to use custom categories for
+        which there are no shorthand notations (Resource, Action, Environment,
+        AccessSubject, RecipientSubject, IntermediarySubject, Codebase,
+        RequestingMachine).
+    
+    Result:
+      required:
+        - Decision
+      type: object
+      properties:
+        Decision:
+          type: string
+          enum:
+            - Permit
+            - Deny
+            - NotApplicable
+            - Indeterminate
+        Status:
+          $ref: '#/components/schemas/Status'
+        Obligations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Obligation'
+        AssociatedAdvice:
+          type: array
+          items:
+            $ref: '#/components/schemas/Obligation'
+        Category:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+        PolicyIdentifierList:
+          $ref: '#/components/schemas/PolicyIdentifier'
+      description: >-
+        A typical response will contain a single result. In the case of a
+        Multiple Decision Request, the Response may contain an array of Result
+        objects.
+
+    Status:
+      type: object
+      properties:
+        StatusMessage:
+          type: string
+        StatusDetail:
+          type: string
+        StatusCode:
+          $ref: '#/components/schemas/StatusCode'
+
+    StatusCode:
+      type: object
+      properties:
+        Value:
+          type: string
+          default: 'urn:oasis:names:tc:xacml:1.0:status:ok'
+          description: One of `urn:oasis:names:tc:xacml:1.0:status:processing-error`, `urn:oasis:names:tc:xacml:1.0:status:syntax-error`, `urn:oasis:names:tc:xacml:1.0:status:missing-attribute` or `urn:oasis:names:tc:xacml:1.0:status:ok`.
+        StatusCode:
+          $ref: '#/components/schemas/StatusCode'
+
+    Obligation:
+      required:
+        - Id
+      type: object
+      properties:
+        Id:
+          type: string
+        AttributeAssignment:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttributeAssignment'
+      description: >-
+        An obligation is an element the PDP can return to the PEP along with a
+        decision. Obligations can be used to enrich the authorization flow. For
+        instance, rather than simply returning Deny, the PDP can return Deny
+        plus a reason for denial (weak credentials, require manager
+        assistance...). The PEP must comply with the obligation.
+
+    AttributeAssignment:
+      allOf:
+        - $ref: '#/components/schemas/Attribute'
+        - type: object
+          properties:
+            Category:
+              type: string
+              description: >-
+                The identifier of the category the attribute belongs to.
+
+    Attribute:
+      required:
+        - AttributeId
+        - Value
+      type: object
+      properties:
+        AttributeId:
+          type: string
+        Value:
+          type: array
+          items:
+            type: string
+            description: |-
+              An attribute value.
+              
+              Each string in this array should be the string representation of
+              a value of the XACML data type specified by the `DataType` property.
+        Issuer:
+          type: string
+        DataType:
+          type: string
+          description: |-
+            A string containing a full XACML data type URI or one of the following shorthand data type names: `string`, `boolean`, `integer`, `double`, `time`, `date`, `dateTime`, `dayTimeDuration`
+              `yearMonthDuration`, `anyURI`, `hexBinary`, `base64Binary`, `rfc822Name`, `x500Name`, `ipAddress`, `dnsName`, `xpathExpression`.
+
+            See the
+            ["Supported Data Types" section of the JSON profile for XACML 3.0 specification](https://docs.oasis-open.org/xacml/xacml-json-http/v1.1/xacml-json-http-v1.1.html#_Toc525043901) for more information.
+          default: http://www.w3.org/2001/XMLSchema#string
+    PolicyIdentifier:
+      type: object
+      properties:
+        PolicyIdReference:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdReference'
+        PolicySetIdReference:
+          type: array
+          items:
+            $ref: '#/components/schemas/IdReference'
+
+    IdReference:
+      type: object
+      required:
+        - Id
+      properties:
+        Id:
+          type: string
+        Version:
+          type: string
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
