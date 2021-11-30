@@ -297,6 +297,11 @@ components:
             See the
             ["Supported Data Types" section of the JSON profile for XACML 3.0 specification](https://docs.oasis-open.org/xacml/xacml-json-http/v1.1/xacml-json-http-v1.1.html#_Toc525043901) for more information.
           default: http://www.w3.org/2001/XMLSchema#string
+        IncludeInResult:
+          type: boolean
+          description: |-
+            Whether to include this attribute in the result. This is useful to correlate requests with their responses in case of multiple requests.
+          default: false
     PolicyIdentifier:
       type: object
       properties:
